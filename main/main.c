@@ -1,6 +1,3 @@
-/*
- * LED blink with FreeRTOS
- */
 #include <FreeRTOS.h>
 #include <task.h>
 #include <semphr.h>
@@ -10,128 +7,159 @@
 #include "gfx.h"
 
 #include "pico/stdlib.h"
+#include "hardware/adc.h"
 #include <stdio.h>
 
-const uint BTN_1_OLED = 28;
-const uint BTN_2_OLED = 26;
-const uint BTN_3_OLED = 27;
+const int BTN_ACELERADOR = 15;
+const int BTN_FREIO = 14;
 
-const uint LED_1_OLED = 20;
-const uint LED_2_OLED = 21;
-const uint LED_3_OLED = 22;
+SemaphoreHandle_t xSemaphore_acelerar;
+SemaphoreHandle_t xSemaphore_frear;
 
-void oled1_btn_led_init(void) {
-    gpio_init(LED_1_OLED);
-    gpio_set_dir(LED_1_OLED, GPIO_OUT);
+volatile int acelerando = 0;
+volatile int freiando = 0;
 
-    gpio_init(LED_2_OLED);
-    gpio_set_dir(LED_2_OLED, GPIO_OUT);
+typedef struct adc {
+    int axis;
+    int val;
+} adc_t;
 
-    gpio_init(LED_3_OLED);
-    gpio_set_dir(LED_3_OLED, GPIO_OUT);
+QueueHandle_t xQueueADC;
 
-    gpio_init(BTN_1_OLED);
-    gpio_set_dir(BTN_1_OLED, GPIO_IN);
-    gpio_pull_up(BTN_1_OLED);
+// ---------- CALLBACK ----------
 
-    gpio_init(BTN_2_OLED);
-    gpio_set_dir(BTN_2_OLED, GPIO_IN);
-    gpio_pull_up(BTN_2_OLED);
-
-    gpio_init(BTN_3_OLED);
-    gpio_set_dir(BTN_3_OLED, GPIO_IN);
-    gpio_pull_up(BTN_3_OLED);
-}
-
-void oled1_demo_1(void *p) {
-    printf("Inicializando Driver\n");
-    ssd1306_init();
-
-    printf("Inicializando GLX\n");
-    ssd1306_t disp;
-    gfx_init(&disp, 128, 32);
-
-    printf("Inicializando btn and LEDs\n");
-    oled1_btn_led_init();
-
-    char cnt = 15;
-    while (1) {
-
-        if (gpio_get(BTN_1_OLED) == 0) {
-            cnt = 15;
-            gpio_put(LED_1_OLED, 0);
-            gfx_clear_buffer(&disp);
-            gfx_draw_string(&disp, 0, 0, 1, "LED 1 - ON");
-            gfx_show(&disp);
-        } else if (gpio_get(BTN_2_OLED) == 0) {
-            cnt = 15;
-            gpio_put(LED_2_OLED, 0);
-            gfx_clear_buffer(&disp);
-            gfx_draw_string(&disp, 0, 0, 1, "LED 2 - ON");
-            gfx_show(&disp);
-        } else if (gpio_get(BTN_3_OLED) == 0) {
-            cnt = 15;
-            gpio_put(LED_3_OLED, 0);
-            gfx_clear_buffer(&disp);
-            gfx_draw_string(&disp, 0, 0, 1, "LED 3 - ON");
-            gfx_show(&disp);
-        } else {
-
-            gpio_put(LED_1_OLED, 1);
-            gpio_put(LED_2_OLED, 1);
-            gpio_put(LED_3_OLED, 1);
-            gfx_clear_buffer(&disp);
-            gfx_draw_string(&disp, 0, 0, 1, "PRESSIONE ALGUM");
-            gfx_draw_string(&disp, 0, 10, 1, "BOTAO");
-            gfx_draw_line(&disp, 15, 27, cnt,
-                          27);
-            vTaskDelay(pdMS_TO_TICKS(50));
-            if (++cnt == 112)
-                cnt = 15;
-
-            gfx_show(&disp);
+void btn_callback(uint gpio, uint32_t events) {
+    if (gpio == BTN_ACELERADOR){
+        if (events == GPIO_IRQ_EDGE_FALL) { // fall edge
+            acelerando = 1;
+            xSemaphoreGiveFromISR(xSemaphore_acelerar, 0);
+        } else if (events == GPIO_IRQ_EDGE_RISE){
+            acelerando = 0;
+        }
+    } else if (gpio == BTN_FREIO){
+        if (events == GPIO_IRQ_EDGE_FALL) { // fall edge
+            freiando = 1;
+            xSemaphoreGiveFromISR(xSemaphore_frear, 0);
+        } else if (events == GPIO_IRQ_EDGE_RISE){
+            freiando = 0;
         }
     }
 }
 
-void oled1_demo_2(void *p) {
-    printf("Inicializando Driver\n");
-    ssd1306_init();
+// ---------- TASKS ----------
 
-    printf("Inicializando GLX\n");
-    ssd1306_t disp;
-    gfx_init(&disp, 128, 32);
+void acelerador_task(void *p) {
+    gpio_init(BTN_ACELERADOR);
+    gpio_set_dir(BTN_ACELERADOR, GPIO_IN);
+    gpio_pull_up(BTN_ACELERADOR);
+    gpio_set_irq_enabled_with_callback(BTN_ACELERADOR, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true, &btn_callback);
 
-    printf("Inicializando btn and LEDs\n");
-    oled1_btn_led_init();
-
-    char cnt = 15;
     while (1) {
+        // if (xSemaphoreTake(xSemaphore_acelerar, pdMS_TO_TICKS(500)) == pdTRUE) {
+        //     while (acelerando) {
+        //         printf(">> Acelerando...\n");
+        //         vTaskDelay(pdMS_TO_TICKS(100));
+        //     }
+            
+        //     vTaskDelay(pdMS_TO_TICKS(100));
+        // }
 
-        gfx_clear_buffer(&disp);
-        gfx_draw_string(&disp, 0, 0, 1, "Mandioca");
-        gfx_show(&disp);
-        vTaskDelay(pdMS_TO_TICKS(150));
+        if (acelerando) {
+            //printf(">> Acelerando...\n");
+            adc_t dado = { .axis = 1, .val = 3 };
+            xQueueSend(xQueueADC, &dado, portMAX_DELAY);
+        }
 
-        gfx_clear_buffer(&disp);
-        gfx_draw_string(&disp, 0, 0, 2, "Batata");
-        gfx_show(&disp);
-        vTaskDelay(pdMS_TO_TICKS(150));
-
-        gfx_clear_buffer(&disp);
-        gfx_draw_string(&disp, 0, 0, 4, "Inhame");
-        gfx_show(&disp);
-        vTaskDelay(pdMS_TO_TICKS(150));
+        vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
+void freio_task(void *p) {
+    gpio_init(BTN_FREIO);
+    gpio_set_dir(BTN_FREIO, GPIO_IN);
+    gpio_pull_up(BTN_FREIO);
+    gpio_set_irq_enabled_with_callback(BTN_FREIO, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true, &btn_callback);
+
+    while (1) {
+        //if (xSemaphoreTake(xSemaphore_frear, pdMS_TO_TICKS(500)) == pdTRUE) {
+        //    while (freiando) {
+        //        printf(">> Freando...\n");
+        //        vTaskDelay(pdMS_TO_TICKS(100));
+        //    }
+
+        //    vTaskDelay(pdMS_TO_TICKS(100));
+        //}
+        if (freiando) {
+            //printf(">> Freando...\n");
+            adc_t dado = { .axis = 1, .val = 1 };
+            xQueueSend(xQueueADC, &dado, portMAX_DELAY);
+        }
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+}
+
+void potenciometro_task(void *p) {
+    adc_init();
+    adc_gpio_init(27); // GPIO 27 = ADC1
+    adc_select_input(1);
+
+    while (1) {
+        int leitura = adc_read();
+        //printf("POT: %d\n", leitura);
+        if(leitura < 2200){
+            adc_t dado = { .axis = 0, .val = 1 };
+            xQueueSend(xQueueADC, &dado, portMAX_DELAY);
+        } else if (leitura > 2400){
+            adc_t dado = { .axis = 0, .val = 3 };
+            xQueueSend(xQueueADC, &dado, portMAX_DELAY);
+        }
+        vTaskDelay(pdMS_TO_TICKS(200)); // evita flood no terminal
+    }
+}
+
+void uart_task(void *p) {
+    adc_t recebido;
+
+    while (1) {
+        if (xQueueReceive(xQueueADC, &recebido, portMAX_DELAY)) {
+            int16_t valor = (int16_t)recebido.val;
+
+            uint8_t axis = (uint8_t)recebido.axis;
+            uint8_t val_0 = (uint8_t)(valor & 0xFF);
+            uint8_t val_1 = (uint8_t)((valor >> 8) & 0xFF);
+            uint8_t eop = 0xFF;
+
+            putchar_raw(axis & 0x01);
+            putchar_raw(val_0);
+            putchar_raw(val_1);
+            putchar_raw(eop);
+        }
+    }
+}
+
+// ---------- MAIN ----------
+
 int main() {
     stdio_init_all();
+    sleep_ms(2000); // Aguarda inicialização da USB para evitar perda de prints
 
-    xTaskCreate(oled1_demo_2, "Demo 2", 4095, NULL, 1, NULL);
+    // Semáforos
+    xSemaphore_acelerar = xSemaphoreCreateBinary();
+    xSemaphore_frear = xSemaphoreCreateBinary();
+
+    if (xSemaphore_acelerar == NULL || xSemaphore_frear == NULL) {
+        printf("Erro ao criar semáforos.\n");
+        return 1;
+    }
+
+    // Criação de tasks
+    xTaskCreate(acelerador_task, "Acelerador Task", 4096, NULL, 1, NULL);
+    xTaskCreate(freio_task, "Freio Task", 4096, NULL, 1, NULL);
+    xTaskCreate(potenciometro_task, "Potenciômetro Task", 4096, NULL, 1, NULL);
+    xTaskCreate(uart_task, "UART Task", 2048, NULL, 1, NULL);
 
     vTaskStartScheduler();
 
     while (true)
-        ;
+        tight_loop_contents(); // não deve chegar aqui
 }
