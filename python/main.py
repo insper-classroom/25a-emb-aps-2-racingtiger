@@ -89,13 +89,13 @@ def main():
                         keyboard.release('s')
                         freiando = False
 
-                # if axis == 3:
-                #     if value == 100 and not boost_ativo:
-                #         keyboard.press(Key.shift)
-                #         boost_ativo = True
-                #     elif value != 100 and boost_ativo:
-                #         keyboard.release(Key.shift)
-                #         boost_ativo = False
+                if axis == 3:
+                    if value == 100 and not boost_ativo:
+                        keyboard.press(Key.shift)
+                        boost_ativo = True
+                    elif value != 100 and boost_ativo:
+                        keyboard.release(Key.shift)
+                        boost_ativo = False
 
                 time.sleep(0.01)
 

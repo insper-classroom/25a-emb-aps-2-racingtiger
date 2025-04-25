@@ -120,43 +120,43 @@ void freio_task(void *p) {
     }
 }
 
-void volante_task(void *p) {
-    adc_init();
-    adc_gpio_init(27); // GPIO 27 = ADC1
-    adc_select_input(1);
+// void volante_task(void *p) {
+//     adc_init();
+//     adc_gpio_init(27); // GPIO 27 = ADC1
+//     adc_select_input(1);
 
-    int leitura_anterior = 0;
-    const int zona_morta = 0;
-    const int leitura_min = 300;  // Ajuste conforme seu teste real
-    const int leitura_max = 3800; // Ajuste conforme seu teste real
+//     int leitura_anterior = 0;
+//     const int zona_morta = 0;
+//     const int leitura_min = 300;  // Ajuste conforme seu teste real
+//     const int leitura_max = 3800; // Ajuste conforme seu teste real
 
-    while (1) {
-        int leitura = adc_read();
-        printf("POT_antes: %d\n", leitura);
+//     while (1) {
+//         int leitura = adc_read();
+//         printf("POT_antes: %d\n", leitura);
 
-        // Saturação dentro da faixa útil
-        if (leitura < leitura_min) leitura = leitura_min;
-        if (leitura > leitura_max) leitura = leitura_max;
+//         // Saturação dentro da faixa útil
+//         if (leitura < leitura_min) leitura = leitura_min;
+//         if (leitura > leitura_max) leitura = leitura_max;
 
-        // Normaliza para -100 a 100
-        float faixa = leitura_max - leitura_min;
-        float pos = (leitura - leitura_min) / faixa; // 0.0 a 1.0
-        int valor_normalizado = (int)((pos - 0.5f) * 200); // -100 a 100
-        printf("POT: %d\n", valor_normalizado);
+//         // Normaliza para -100 a 100
+//         float faixa = leitura_max - leitura_min;
+//         float pos = (leitura - leitura_min) / faixa; // 0.0 a 1.0
+//         int valor_normalizado = (int)((pos - 0.5f) * 200); // -100 a 100
+//         printf("POT: %d\n", valor_normalizado);
 
-        if (abs(valor_normalizado) < zona_morta) {
-            valor_normalizado = 0;
-        }
+//         if (abs(valor_normalizado) < zona_morta) {
+//             valor_normalizado = 0;
+//         }
 
-        if (abs(valor_normalizado - leitura_anterior) > 2) {
-            adc_t dado = { .axis = 2, .val = valor_normalizado };
-            xQueueSend(xQueueADC, &dado, portMAX_DELAY);
-            leitura_anterior = valor_normalizado;
-        }
+//         if (abs(valor_normalizado - leitura_anterior) > 2) {
+//             adc_t dado = { .axis = 2, .val = valor_normalizado };
+//             xQueueSend(xQueueADC, &dado, portMAX_DELAY);
+//             leitura_anterior = valor_normalizado;
+//         }
 
-        vTaskDelay(pdMS_TO_TICKS(10));
-    }
-}
+//         vTaskDelay(pdMS_TO_TICKS(10));
+//     }
+// }
 
 // void boost_task(void *p) {
 //     adc_init();
@@ -196,6 +196,81 @@ void volante_task(void *p) {
 //         vTaskDelay(pdMS_TO_TICKS(10));
 //     }
 // }
+
+void adc_task() {
+    adc_init();
+    adc_gpio_init(26); // GPIO 26 = ADC0
+    adc_gpio_init(27); // GPIO 27 = ADC1
+    
+    int leitura_anterior = 0;
+    const int zona_morta = 0;
+    const int leitura_min = 300;  // Ajuste conforme seu teste real
+    const int leitura_max = 3800; // Ajuste conforme seu teste real
+    
+    int mudanca_b = 0;
+    int boost = 0;
+    int valor_anterior = 0;
+    
+    while (1) {
+        
+        // VOLANTE
+        adc_select_input(1);
+        int leitura = adc_read();
+        // printf("POT_antes: %d\n", leitura);
+
+        // Saturação dentro da faixa útil
+        if (leitura < leitura_min) leitura = leitura_min;
+        if (leitura > leitura_max) leitura = leitura_max;
+
+        // Normaliza para -100 a 100
+        float faixa = leitura_max - leitura_min;
+        float pos = (leitura - leitura_min) / faixa; // 0.0 a 1.0
+        int valor_normalizado = (int)((pos - 0.5f) * 200); // -100 a 100
+        // printf("POT: %d\n", valor_normalizado);
+
+        if (abs(valor_normalizado) < zona_morta) {
+            valor_normalizado = 0;
+        }
+
+        if (abs(valor_normalizado - leitura_anterior) > 2) {
+            adc_t dado = { .axis = 2, .val = valor_normalizado };
+            xQueueSend(xQueueADC, &dado, portMAX_DELAY);
+            leitura_anterior = valor_normalizado;
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(10));
+
+        // BOOST
+        adc_select_input(0);
+        int leitura_boost = adc_read();
+        printf("BOOST_antes: %d\n", leitura_boost);
+        
+        
+        if (leitura_boost < 29) {
+            boost = 0;
+            printf("DESLIGADO\n");
+            if (boost != valor_anterior) {
+                mudanca_b = 1;
+            }
+        } else {
+            boost = 100;
+            printf("LIGADO\n");
+            if (boost != valor_anterior) {
+                mudanca_b = 1;
+            }
+        }
+
+        valor_anterior = boost;
+
+        if (mudanca_b) {
+            adc_t dado = { .axis = 3, .val = boost };
+            xQueueSend(xQueueADC, &dado, 0);
+            mudanca_b = 0;
+        }
+
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
 
 void uart_task(void *p) {
     adc_t recebido;
@@ -244,8 +319,9 @@ int main() {
     // Criação de tasks
     xTaskCreate(acelerador_task, "Acelerador Task", 1024, NULL, 1, NULL);
     xTaskCreate(freio_task, "Freio Task", 1024, NULL, 1, NULL);
-    xTaskCreate(volante_task, "Volante Task", 1024, NULL, 1, NULL);
+    // xTaskCreate(volante_task, "Volante Task", 1024, NULL, 1, NULL);
     // xTaskCreate(boost_task, "Boost Task", 1024, NULL, 1, NULL);
+    xTaskCreate(adc_task, "ADC Task", 1024, NULL, 1, NULL);
     xTaskCreate(uart_task, "UART Task", 1024, NULL, 1, NULL);
 
     vTaskStartScheduler();
