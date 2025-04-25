@@ -34,12 +34,6 @@ typedef struct adc {
 
 QueueHandle_t xQueueADC;
 
-int16_t melhora_resolucao(int16_t valor) {
-    int x = valor - (4082/2);
-    x = (x*255)/(4082/2);
-    return x;
-}
-
 // ---------- CALLBACK ----------
 
 void btn_callback(uint gpio, uint32_t events) {
