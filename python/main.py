@@ -96,6 +96,12 @@ def main():
                     elif value != 100 and boost_ativo:
                         keyboard.release(Key.shift)
                         boost_ativo = False
+                
+                if axis == 4:
+                    if value == 100:
+                        keyboard.press('r')
+                    else:
+                        keyboard.release('r')
 
                 time.sleep(0.01)
 

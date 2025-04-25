@@ -12,6 +12,8 @@
 
 const int BTN_ACELERADOR = 15;
 const int BTN_FREIO = 14;
+const int BTN_RESET = 16;
+const int BTN_START = 17;
 
 const int LED_ACELERADOR = 13;
 const int LED_FREIO = 12;
@@ -22,6 +24,8 @@ volatile int acelerando = 0;
 volatile int freiando = 0;
 volatile int mudanca_a = 0;
 volatile int mudanca_f = 0;
+volatile int reset = 0;
+volatile int start = 0;
 
 typedef struct adc {
     int axis;
@@ -55,7 +59,22 @@ void btn_callback(uint gpio, uint32_t events) {
             freiando = 0;
             mudanca_f = !mudanca_f;
         }
+    } else if (gpio == BTN_RESET){
+        if (events == GPIO_IRQ_EDGE_FALL) { // fall edge
+            reset = 1;
+        } else if (events == GPIO_IRQ_EDGE_RISE){
+            reset = 0;
+        }
     }
+    // else if (gpio == BTN_START){
+    //     if (events == GPIO_IRQ_EDGE_FALL) { // fall edge
+    //         freiando = 1;
+    //         mudanca_f = !mudanca_f;
+    //     } else if (events == GPIO_IRQ_EDGE_RISE){
+    //         freiando = 0;
+    //         mudanca_f = !mudanca_f;
+    //     }
+    // }
 }
 
 // ---------- TASKS ----------
@@ -272,6 +291,22 @@ void adc_task() {
     }
 }
 
+void reset_task(void *p) {
+    gpio_init(BTN_RESET);
+    gpio_set_dir(BTN_RESET, GPIO_IN);
+    gpio_pull_up(BTN_RESET);
+    gpio_set_irq_enabled_with_callback(BTN_RESET, GPIO_IRQ_EDGE_FALL | GPIO_IRQ_EDGE_RISE, true, &btn_callback);
+
+    while (1) {
+        if (reset) {
+            adc_t dado = { .axis = 4, .val = 100 };
+            xQueueSend(xQueueADC, &dado, 0);
+            reset = 0;
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
+
 void uart_task(void *p) {
     adc_t recebido;
 
@@ -322,6 +357,7 @@ int main() {
     // xTaskCreate(volante_task, "Volante Task", 1024, NULL, 1, NULL);
     // xTaskCreate(boost_task, "Boost Task", 1024, NULL, 1, NULL);
     xTaskCreate(adc_task, "ADC Task", 1024, NULL, 1, NULL);
+    xTaskCreate(reset_task, "Reset Task", 1024, NULL, 1, NULL);
     xTaskCreate(uart_task, "UART Task", 1024, NULL, 1, NULL);
 
     vTaskStartScheduler();
