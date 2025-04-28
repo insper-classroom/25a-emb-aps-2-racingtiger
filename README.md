@@ -8,7 +8,7 @@ basic freertos project, with code quality enabled.
 
 ## 🎯 Descrição do Projeto
 
-Este projeto tem como objetivo o desenvolvimento de um volante de corrida customizado, inspirado nos volantes da Fórmula 1, projetado para uso no simulador **Automobilista 2 (Steam)**. O projeto abrange desde o design, fabricação, montagem e integração eletrônica até a configuração final do volante no jogo.
+Este projeto tem como objetivo o desenvolvimento de um volante de corrida customizado, inspirado nos volantes da Fórmula 1, projetado para uso no jogo **slowroads.io**. O projeto abrange desde o design, fabricação, montagem e integração eletrônica até a configuração final do volante no jogo.
 
 ---
 
@@ -21,7 +21,7 @@ Este projeto tem como objetivo o desenvolvimento de um volante de corrida custom
 | **Impressão 3D ou Cortadora a Laser** | Fabricação das peças físicas |
 | **Raspberry Pi Pico** | Comunicação entre o controle e o PC |
 | **Solda e eletrônica** | Montagem dos circuitos |
-| **Automobilista 2 (Steam)** | Plataforma de teste e uso final |
+| **Slow Roads** | Plataforma de teste e uso final que funciona via navegador |
 
 ---
 
@@ -29,8 +29,8 @@ Este projeto tem como objetivo o desenvolvimento de um volante de corrida custom
 
 O projeto foi desenvolvido utilizando os seguintes materiais:
 
-- *3 Botões* - Utilizados para interação com o sistema, permitindo o acionamento de funções específicas.
-- *3 Potenciômetros* - Responsáveis pelo ajuste de parâmetros variáveis do sistema.
+- *4 Botões* - Utilizados para interação com o sistema, permitindo o acionamento do acelerador, do freio e do reset para a pista, além da configuração do momento de início da transmissão dos dados através do botão de start.
+- *2 Potenciômetros* - Responsáveis pelo controle proporcional do volante e pelo acionamento do boost.
 - *3 LEDs* - Indicadores visuais do funcionamento do sistema.
 - *Chapa de MDF 3mm* - Utilizada para a estrutura e suporte dos componentes.
 
