@@ -10,6 +10,8 @@
 #include "hardware/adc.h"
 #include <stdio.h>
 
+#include "hc06.c"
+
 const int BTN_ACELERADOR = 15;
 const int BTN_FREIO = 14;
 const int BTN_RESET = 16;
@@ -25,13 +27,6 @@ volatile int mudanca_a = 0;
 volatile int mudanca_f = 0;
 volatile int reset = 0;
 volatile int start = 0;
-
-// Configurações do HC-06
-#define HC06_UART_ID uart1
-#define HC06_BAUD_RATE 9600
-#define HC06_TX_PIN 5
-#define HC06_RX_PIN 4
-#define HC06_EN_PIN 6
 
 typedef struct adc {
     int axis;
@@ -99,7 +94,7 @@ void acelerador_task(void *p) {
             mudanca_a = !mudanca_a;
         }
 
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
 }
 
@@ -128,83 +123,9 @@ void freio_task(void *p) {
             mudanca_f = !mudanca_f;
         }
 
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
 }
-
-// void volante_task(void *p) {
-//     adc_init();
-//     adc_gpio_init(27); // GPIO 27 = ADC1
-//     adc_select_input(1);
-
-//     int leitura_anterior = 0;
-//     const int zona_morta = 0;
-//     const int leitura_min = 300;
-//     const int leitura_max = 3800;
-
-//     while (1) {
-//         int leitura = adc_read();
-//         printf("POT_antes: %d\n", leitura);
-
-//         if (leitura < leitura_min) leitura = leitura_min;
-//         if (leitura > leitura_max) leitura = leitura_max;
-
-//         // Normaliza para -100 a 100
-//         float faixa = leitura_max - leitura_min;
-//         float pos = (leitura - leitura_min) / faixa; // 0.0 a 1.0
-//         int valor_normalizado = (int)((pos - 0.5f) * 200); // -100 a 100
-//         printf("POT: %d\n", valor_normalizado);
-
-//         if (abs(valor_normalizado) < zona_morta) {
-//             valor_normalizado = 0;
-//         }
-
-//         if (abs(valor_normalizado - leitura_anterior) > 2) {
-//             adc_t dado = { .axis = 2, .val = valor_normalizado };
-//             xQueueSend(xQueueADC, &dado, portMAX_DELAY);
-//             leitura_anterior = valor_normalizado;
-//         }
-
-//         vTaskDelay(pdMS_TO_TICKS(10));
-//     }
-// }
-
-// void boost_task(void *p) {
-//     adc_init();
-//     adc_gpio_init(26); // GPIO 26 = ADC0
-//     adc_select_input(0);
-
-//     int leitura_anterior = 0;
-//     int mudanca_b = 0;
-//     int boost = 0;
-//     int valor_anterior = 0;
-
-//     while (1) {
-//         int leitura = adc_read();
-
-//         if (leitura < 29) {
-//             boost = 0;
-//             if (boost != valor_anterior) {
-//                 mudanca_b = 1;
-//             }
-//         } else {
-//             boost = 100;
-//             if (boost != valor_anterior) {
-//                 mudanca_b = 1;
-//             }
-//         }
-
-//         valor_anterior = boost;
-
-//         if (mudanca_b) {
-//             adc_t dado = { .axis = 3, .val = boost };
-//             xQueueSend(xQueueADC, &dado, 0);
-//             mudanca_b = 0;
-//         }
-
-//         vTaskDelay(pdMS_TO_TICKS(10));
-//     }
-// }
 
 void adc_task() {
     adc_init();
@@ -243,8 +164,6 @@ void adc_task() {
             leitura_anterior = valor_normalizado;
         }
 
-        vTaskDelay(pdMS_TO_TICKS(10));
-
         // BOOST
         adc_select_input(0);
         int leitura_boost = adc_read();
@@ -269,7 +188,7 @@ void adc_task() {
             mudanca_b = 0;
         }
 
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
 }
 
@@ -285,7 +204,7 @@ void reset_task(void *p) {
             xQueueSend(xQueueADC, &dado, 0);
             reset = 0;
         }
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
 }
 
@@ -298,69 +217,55 @@ void start_task(void *p) {
     gpio_set_irq_enabled_with_callback(BTN_START, GPIO_IRQ_EDGE_FALL, true, &btn_callback);
 
     while (1) {
-        vTaskDelay(pdMS_TO_TICKS(10));
+        if (start) {
+            gpio_put(LED_CONEXAO, 1);
+        } else {
+            gpio_put(LED_CONEXAO, 0);
+        }
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
 }
 
-void uart_task(void *p) {
+void hc06_task(void *p) {
+    uart_init(HC06_UART_ID, HC06_BAUD_RATE);
+    gpio_set_function(HC06_TX_PIN, GPIO_FUNC_UART);
+    gpio_set_function(HC06_RX_PIN, GPIO_FUNC_UART);
+    hc06_init("Liriri Larila", "2503");
+
     adc_t recebido;
     int led_state = 1;
     int inicio = 1;
 
-    while (1) {
+    while (true) {
+        if (xQueueReceive(xQueueADC, &recebido, portMAX_DELAY) && start) {
+            int16_t valor = (int16_t)recebido.val;
 
-        if (start) {
-            if (inicio) {
-                gpio_put(LED_CONEXAO, led_state);
-                inicio = 0;
-            }
-    
-            if (xQueueReceive(xQueueADC, &recebido, portMAX_DELAY)) {
-                int16_t valor = (int16_t)recebido.val;
-    
-                uint8_t axis = (uint8_t)recebido.axis;
-                uint8_t val_0 = (uint8_t)(valor & 0xFF);
-                uint8_t val_1 = (uint8_t)((valor >> 8) & 0xFF);
-    
-                uint8_t header = 0xAA;
-                uint8_t msg_type = 0x01; // MSG_ANALOG
-                uint8_t payload_size = 3;
-                uint8_t payload[3] = { axis, val_1, val_0 }; // ATENÇÃO: MSB primeiro depois LSB
-                uint8_t checksum = msg_type ^ payload_size ^ payload[0] ^ payload[1] ^ payload[2];
-                uint8_t eop = 0xFF;
-    
-                // Envia os dados na ordem correta
-                putchar_raw(header);
-                putchar_raw(msg_type);
-                putchar_raw(payload_size);
-                putchar_raw(payload[0]);
-                putchar_raw(payload[1]);
-                putchar_raw(payload[2]);
-                putchar_raw(checksum);
-                putchar_raw(eop);
-            }
-        } else {
-            gpio_put(LED_CONEXAO, 0);
+            uint8_t axis = (uint8_t)recebido.axis;
+            uint8_t val_0 = (uint8_t)(valor & 0xFF);
+            uint8_t val_1 = (uint8_t)((valor >> 8) & 0xFF);
+
+            uint8_t header = 0xAA;
+            uint8_t msg_type = 0x01;
+            uint8_t payload_size = 3;
+            uint8_t payload[3] = { axis, val_1, val_0 };
+            uint8_t checksum = msg_type ^ payload_size ^ payload[0] ^ payload[1] ^ payload[2];
+            uint8_t eop = 0xFF;
+            
+            uint8_t pacote[8] = {
+                header,
+                msg_type,
+                payload_size,
+                payload[0],
+                payload[1],
+                payload[2],
+                checksum,
+                eop
+            };
+            
+            uart_write_blocking(HC06_UART_ID, pacote, sizeof(pacote));
         }
     }
 }
-
-// void hc06_task(void *p) {
-//     uart_init(HC06_UART_ID, HC06_BAUD_RATE);
-//     gpio_set_function(HC06_TX_PIN, GPIO_FUNC_UART);
-//     gpio_set_function(HC06_RX_PIN, GPIO_FUNC_UART);
-//     hc06_init("Liriri Larila", "2503");
-
-//     // gpio_init(HC06_EN_PIN);
-//     // gpio_set_dir(HC06_EN_PIN, GPIO_OUT);
-//     // gpio_put(HC06_EN_PIN, 0);
-
-
-//     while (true) {
-//         uart_puts(HC06_UART_ID, "OLAAA ");
-//         vTaskDelay(pdMS_TO_TICKS(100));
-//     }
-// }
 
 // ---------- MAIN ----------
 
@@ -375,16 +280,12 @@ int main() {
         return 1;
     }
 
-    // Criação de tasks
     xTaskCreate(acelerador_task, "Acelerador Task", 1024, NULL, 1, NULL);
     xTaskCreate(freio_task, "Freio Task", 1024, NULL, 1, NULL);
-    // xTaskCreate(volante_task, "Volante Task", 1024, NULL, 1, NULL);
-    // xTaskCreate(boost_task, "Boost Task", 1024, NULL, 1, NULL);
-    xTaskCreate(adc_task, "ADC Task", 1024, NULL, 1, NULL);
+    xTaskCreate(adc_task, "ADC Task", 2048, NULL, 1, NULL);
     xTaskCreate(reset_task, "Reset Task", 1024, NULL, 1, NULL);
     xTaskCreate(start_task, "Start Task", 1024, NULL, 1, NULL);
-    xTaskCreate(uart_task, "UART Task", 1024, NULL, 1, NULL);
-    // xTaskCreate(hc06_task, "HC06 Task", 1024, NULL, 1, NULL);
+    xTaskCreate(hc06_task, "HC06 Task", 2048, NULL, 1, NULL);
 
     vTaskStartScheduler();
 

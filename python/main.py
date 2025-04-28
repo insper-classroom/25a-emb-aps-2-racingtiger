@@ -4,8 +4,11 @@ from pynput.mouse import Controller as MouseController
 from pynput.keyboard import Controller as KeyboardController
 from pynput.keyboard import Key
 
-SERIAL_PORT = '/dev/ttyACM0'
-BAUD_RATE = 115200
+# SERIAL_PORT = '/dev/ttyACM0'
+# BAUD_RATE = 115200
+
+SERIAL_PORT = '/dev/rfcomm0'
+BAUD_RATE = 9600
 
 HEADER = 0xAA
 FOOTER = 0xFF
@@ -112,8 +115,8 @@ def main():
             keyboard.release('w')
         if freiando:
             keyboard.release('s')
-        # if boost_ativo:
-        #     keyboard.release(Key.shift)
+        if boost_ativo:
+            keyboard.release(Key.shift)
         print("Programa finalizado.")
 
 if __name__ == "__main__":
