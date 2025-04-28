@@ -38,13 +38,13 @@ O projeto foi desenvolvido utilizando os seguintes materiais:
 
 ## Representação Visual do controle
 
-<img src="imgs/Esquema_volante.jpeg" alt="Render do volante" width="500px">
+<img src="imgs/Esquema_volante.png" alt="Render do volante" width="500px">
 
 ---
 
 ## Diagrama do Projeto
 
-<img src="imgs/diagrama.jpeg" alt="Diagrama" width="500px">
+<img src="imgs/diagrama.png" alt="Diagrama" width="500px">
 
 ---
 
