@@ -133,12 +133,11 @@ void adc_task() {
     adc_gpio_init(27); // GPIO 27 = ADC1
     
     int leitura_anterior = 0;
-    const int zona_morta = 0;
     const int leitura_min = 300;
     const int leitura_max = 3800;
     
     int mudanca_b = 0;
-    int boost = 0;
+    int boost;
     int valor_anterior = 0;
     
     while (1) {
@@ -153,10 +152,6 @@ void adc_task() {
         float faixa = leitura_max - leitura_min;
         float pos = (leitura - leitura_min) / faixa; // 0.0 a 1.0
         int valor_normalizado = (int)((pos - 0.5f) * 200); // -100 a 100
-
-        if (abs(valor_normalizado) < zona_morta) {
-            valor_normalizado = 0;
-        }
 
         if (abs(valor_normalizado - leitura_anterior) > 2 && start) {
             adc_t dado = { .axis = 2, .val = valor_normalizado };
@@ -233,8 +228,6 @@ void hc06_task(void *p) {
     hc06_init("Liriri Larila", "2503");
 
     adc_t recebido;
-    int led_state = 1;
-    int inicio = 1;
 
     while (true) {
         if (xQueueReceive(xQueueADC, &recebido, portMAX_DELAY) && start) {

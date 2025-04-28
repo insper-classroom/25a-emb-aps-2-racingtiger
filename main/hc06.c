@@ -15,7 +15,7 @@ bool hc06_check_connection() {
         return false;
 }
 
-bool hc06_set_name(char name[]) {
+bool hc06_set_name(const char name[]) {
     char str[32];
     int i = 0;
 
@@ -32,7 +32,7 @@ bool hc06_set_name(char name[]) {
         return false;
 }
 
-bool hc06_set_pin(char pin[]) {
+bool hc06_set_pin(const char pin[]) {
     char str[32];
     int i = 0;
 
