@@ -240,7 +240,7 @@ void hc06_task(void *p) {
             uint8_t header = 0xAA;
             uint8_t msg_type = 0x01;
             uint8_t payload_size = 3;
-            uint8_t payload[3] = { axis, val_1, val_0 };
+            const uint8_t payload[3] = { axis, val_1, val_0 };
             uint8_t checksum = msg_type ^ payload_size ^ payload[0] ^ payload[1] ^ payload[2];
             uint8_t eop = 0xFF;
             
